@@ -12,6 +12,8 @@ function notifyStatus(status) {
   });
 }
 
+const DEFAULT_PROD_SOCKET_URL = "https://familybusinessgame.onrender.com";
+
 export function getSocketUrl() {
   const envUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
   if (envUrl && envUrl.trim()) {
@@ -19,6 +21,9 @@ export function getSocketUrl() {
   }
   if (typeof window !== "undefined") {
     const host = window.location.hostname || "localhost";
+    if (window.location.protocol === "https:") {
+      return DEFAULT_PROD_SOCKET_URL;
+    }
     return `http://${host}:5000`;
   }
   return "http://localhost:5000";
@@ -34,6 +39,7 @@ export function getSocket() {
     const url = getSocketUrl();
     socket = io(url, {
       transports: ["websocket", "polling"],
+      withCredentials: false,
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1500,
@@ -41,6 +47,18 @@ export function getSocket() {
       timeout: 20000,
       autoConnect: true,
     });
+
+    if (typeof window !== "undefined" && typeof document !== "undefined") {
+      // iOS Safari suspends WebSockets when backgrounded/locked; immediately reconnect on return
+      const resumeSocket = () => {
+        if (document.visibilityState === "visible" && socket && !socket.connected) {
+          notifyStatus("waking");
+          socket.connect();
+        }
+      };
+      document.addEventListener("visibilitychange", resumeSocket);
+      window.addEventListener("pageshow", resumeSocket);
+    }
 
     socket.on("connect", () => {
       notifyStatus("connected");

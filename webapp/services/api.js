@@ -1,16 +1,38 @@
+function isLocalHost(host) {
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.startsWith("192.168.") ||
+    host.startsWith("10.")
+  );
+}
+
 function getServerRoot() {
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
-  if (socketUrl && socketUrl.trim()) {
-    return socketUrl.trim().replace(/\/$/, "");
-  }
   if (typeof window !== "undefined") {
     const host = window.location.hostname || "localhost";
+    // On deployed HTTPS origins (Vercel), route REST via same-origin rewrite to avoid iOS ITP/CORS issues
+    if (window.location.protocol === "https:" || !isLocalHost(host)) {
+      return "";
+    }
+    if (socketUrl && socketUrl.trim()) {
+      return socketUrl.trim().replace(/\/$/, "");
+    }
     return `http://${host}:5000`;
+  }
+  if (socketUrl && socketUrl.trim()) {
+    return socketUrl.trim().replace(/\/$/, "");
   }
   return "http://localhost:5000";
 }
 
 function getApiBase() {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname || "localhost";
+    if (window.location.protocol === "https:" || !isLocalHost(host)) {
+      return "/api/games";
+    }
+  }
   const envApi = process.env.NEXT_PUBLIC_API_URL;
   if (envApi && envApi.trim()) {
     return envApi.trim().replace(/\/$/, "");
@@ -19,7 +41,8 @@ function getApiBase() {
 }
 
 export async function pingServerHealth() {
-  const res = await fetch(`${getServerRoot()}/health`, { cache: "no-store" });
+  const root = getServerRoot();
+  const res = await fetch(`${root}/health`, { cache: "no-store" });
   if (!res.ok) throw new Error("Server waking up");
   return res.json();
 }
