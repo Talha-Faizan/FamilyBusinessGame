@@ -349,33 +349,62 @@ export function CreateGameScreen({
         {/* Right Column: Treasury & Rule Switches */}
         <div className="lg:col-span-6 space-y-5">
           <PastelCard tone="yellow" className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <span className="text-xs font-extrabold uppercase tracking-wider block">
                   Starting Treasury Per Player
                 </span>
                 <span className="text-[11px] font-semibold text-[#171717]/70">
-                  Dolly Plastic Standard: ₹30,000 (Coins: 10K×2, 5K×1, 1K×4, 500×1, 100×4, 50×2)
+                  Dolly Plastic Standard: ₹30,000 (Slide between ₹5,000 and ₹30,000)
                 </span>
               </div>
-              <StatusBadge dark>Standard</StatusBadge>
+              <StatusBadge dark>
+                {config.startingMoney === 30000 ? 'Standard' : 'Custom'}
+              </StatusBadge>
             </div>
-            <div className="grid grid-cols-3 gap-2.5">
-              {[30000, 25000, 50000].map((amt) => (
-                <button
-                  key={amt}
-                  type="button"
-                  onClick={() => onUpdateConfig({ startingMoney: amt })}
-                  className={`py-3 px-3 rounded-2xl border-[1.5px] border-[#171717] font-display text-xs sm:text-sm transition-all ${
-                    config.startingMoney === amt
-                      ? 'bg-[#171717] text-[#F8F7EF] shadow-[0_3px_0_0_rgba(23,23,23,0.3)]'
-                      : 'bg-[#F8F7EF] text-[#171717]'
-                  }`}
-                >
-                  {formatINR(amt)}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const sliderVal = Math.min(30000, Math.max(5000, config.startingMoney || 30000));
+              const pct = ((sliderVal - 5000) / (30000 - 5000)) * 100;
+              return (
+                <div className="p-4 rounded-2xl bg-[#F8F7EF] border-[1.5px] border-[#171717] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#171717]/65">
+                      Selected Starting Cash
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-[#171717] text-[#FFD95A] font-display text-base">
+                      {formatINR(sliderVal)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={5000}
+                    max={30000}
+                    step={1000}
+                    value={sliderVal}
+                    aria-label="Starting Treasury Per Player"
+                    onChange={(e) => onUpdateConfig({ startingMoney: Number(e.target.value) })}
+                    style={{
+                      background: `linear-gradient(to right, #171717 ${pct}%, #EAEAEA ${pct}%)`,
+                    }}
+                    className="w-full h-3 rounded-full appearance-none border-[1.5px] border-[#171717] cursor-pointer accent-[#171717]"
+                  />
+                  <div className="flex items-center justify-between text-[10px] font-extrabold text-[#171717]/70">
+                    {[5000, 10000, 15000, 20000, 25000, 30000].map((mark) => (
+                      <button
+                        key={mark}
+                        type="button"
+                        onClick={() => onUpdateConfig({ startingMoney: mark })}
+                        className={`cursor-pointer hover:text-[#171717] ${
+                          sliderVal === mark ? 'text-[#171717] underline' : ''
+                        }`}
+                      >
+                        ₹{mark / 1000}k
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </PastelCard>
 
           <PastelCard tone="white" className="p-6 space-y-4">
