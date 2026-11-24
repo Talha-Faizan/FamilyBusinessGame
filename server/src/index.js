@@ -11,20 +11,34 @@ const { initSocketHandlers } = require("./sockets/socketHandler");
 const app = express();
 const server = http.createServer(app);
 
-const rawOrigins = process.env.CLIENT_URL || process.env.CORS_ORIGIN || "http://localhost:3000";
-const allowedOrigins = rawOrigins
+const defaultOrigins = [
+  "https://familybusinessgame.vercel.app",
+  "http://localhost:3000",
+];
+const envOrigins = [process.env.CLIENT_URL, process.env.CORS_ORIGIN]
+  .filter(Boolean)
+  .join(",")
   .split(",")
   .map((o) => o.trim().replace(/\/$/, ""))
-  .filter(Boolean);
+  .filter((o) => o && o !== "*");
+
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+const vercelPreviewPattern = /^https:\/\/familybusinessgame(-[a-z0-9-]+)?\.vercel\.app$/i;
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  const clean = origin.trim().replace(/\/$/, "");
+  return allowedOrigins.includes(clean) || vercelPreviewPattern.test(clean);
+}
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ""))) {
+    if (isOriginAllowed(origin)) {
       return callback(null, true);
     }
     return callback(new Error(`CORS blocked origin: ${origin}`));
   },
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
 };
 
@@ -40,6 +54,7 @@ app.set("io", io);
 
 // Middleware
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 
 // Routes
