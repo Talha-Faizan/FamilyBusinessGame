@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+webapp/node_modules/
+server/node_modules/
+
+# Build outputs
+webapp/.next/
+webapp/out/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+server/.env
+webapp/.env.local
+
+# Tooling & test logs
+.playwright-mcp/
+app/.gradle/
+app/build/

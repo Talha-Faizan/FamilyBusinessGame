@@ -1,0 +1,197 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@source "../components/**/*.{js,ts,jsx,tsx}";
+@source "../app/**/*.{js,ts,jsx,tsx}";
+
+/* Boldonse Regular Font Face definition from local file */
+@font-face {
+  font-family: 'Boldonse';
+  src: url('/fonts/Boldonse-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Boldonse Regular';
+  src: url('/fonts/Boldonse-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Boldonse', 'Boldonse Regular', system-ui, sans-serif;
+
+  --color-pastel-yellow: #FFD95A;
+  --color-pastel-pink: #FF9EC4;
+  --color-pastel-blue: #91D5F2;
+  --color-pastel-green: #A8DDB9;
+  --color-pastel-orange: #FFB66E;
+  --color-warm-white: #F8F7EF;
+  --color-soft-black: #171717;
+  --color-light-gray: #EAEAEA;
+}
+
+@layer base {
+  body {
+    background-color: #F8F7EF;
+    color: #171717;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+.font-display {
+  font-family: var(--font-display);
+  line-height: 1.32;
+  letter-spacing: -0.01em;
+}
+
+@keyframes dice-tumble {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-14deg) scale(1.08);
+  }
+  50% {
+    transform: rotate(12deg) scale(0.96);
+  }
+  75% {
+    transform: rotate(-6deg) scale(1.04);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes slide-up-spring {
+  0% {
+    opacity: 0.88;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.75;
+  }
+  70% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(3deg);
+  }
+}
+
+@keyframes pawn-hop {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.16);
+  }
+}
+
+.animate-dice {
+  animation: dice-tumble 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.animate-slide-up {
+  animation: slide-up-spring 0.12s ease-out;
+}
+
+.animate-float-slow {
+  animation: float-slow 5s ease-in-out infinite;
+}
+
+.animate-pawn-hop {
+  animation: pawn-hop 0.22s ease-in-out infinite;
+}
+
+@keyframes bid-bubble-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.78);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes leader-halo {
+  0%, 100% {
+    box-shadow: 0 0 0 5px #FFD95A, 0 0 0 10px rgba(255, 217, 90, 0.38), 0 5px 0 0 #171717;
+  }
+  50% {
+    box-shadow: 0 0 0 7px #FFD95A, 0 0 0 16px rgba(255, 217, 90, 0.16), 0 5px 0 0 #171717;
+  }
+}
+
+@keyframes center-card-bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.035);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-bid-bubble {
+  animation: bid-bubble-pop 0.44s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.animate-leader-halo {
+  animation: leader-halo 2.2s ease-in-out infinite;
+}
+
+.animate-center-bump {
+  animation: center-card-bump 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Clean subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(23, 23, 23, 0.16);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(23, 23, 23, 0.3);
+}
