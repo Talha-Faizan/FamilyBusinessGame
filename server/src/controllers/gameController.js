@@ -248,6 +248,7 @@ exports.getGameState = async (req, res) => {
     });
 
     res.json({
+      serverNow: Date.now(),
       game,
       players: enrichedPlayers,
       properties,

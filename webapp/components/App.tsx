@@ -350,7 +350,8 @@ interface AuctionPromptEvent {
     total: number;
   } | null>(null);
 
-  const animTimersRef = useRef<number[]>([]);
+  const animTimersByPlayerRef = useRef<Record<string, number[]>>({});
+  const movingPlayersRef = useRef<Record<string, boolean>>({});
   const lastAnimatedMovementIdRef = useRef<string>('');
   const animatingUntilRef = useRef<number>(0);
   const configGameModeRef = useRef(config.gameMode);
@@ -361,7 +362,9 @@ interface AuctionPromptEvent {
 
   useEffect(() => {
     return () => {
-      animTimersRef.current.forEach((id) => window.clearTimeout(id));
+      Object.values(animTimersByPlayerRef.current).forEach((list) =>
+        list.forEach((id) => window.clearTimeout(id))
+      );
     };
   }, []);
 
@@ -382,8 +385,9 @@ interface AuctionPromptEvent {
         lastAnimatedMovementIdRef.current = movementId;
       }
 
-      animTimersRef.current.forEach((id) => window.clearTimeout(id));
-      animTimersRef.current = [];
+      const existingTimers = animTimersByPlayerRef.current[playerId] || [];
+      existingTimers.forEach((id) => window.clearTimeout(id));
+      animTimersByPlayerRef.current[playerId] = [];
 
       const boardLen = spaces.length || 36;
       const computedSteps = totalSteps > 0 ? totalSteps : (toPos - fromPos + boardLen) % boardLen;
@@ -396,10 +400,11 @@ interface AuctionPromptEvent {
         path[path.length - 1] = toPos;
       }
 
-      const stepMs = 170;
-      const totalDuration = stepsCount * stepMs + 200;
-      animatingUntilRef.current = Date.now() + totalDuration;
+      const stepMs = 150;
+      const totalDuration = stepsCount * stepMs + 160;
+      animatingUntilRef.current = Math.max(animatingUntilRef.current, Date.now() + totalDuration);
 
+      movingPlayersRef.current[playerId] = true;
       setMovingPlayerId(playerId);
       setVisualPositions((prev) => ({ ...prev, [playerId]: fromPos }));
 
@@ -408,18 +413,19 @@ interface AuctionPromptEvent {
           setVisualPositions((prev) => ({ ...prev, [playerId]: pos }));
           if (idx === path.length - 1) {
             const doneTid = window.setTimeout(() => {
-              setMovingPlayerId(null);
+              delete movingPlayersRef.current[playerId];
+              setMovingPlayerId((curr) => (curr === playerId ? null : curr));
               setVisualPositions((prev) => {
                 const copy = { ...prev };
                 delete copy[playerId];
                 return copy;
               });
               onComplete?.();
-            }, 200);
-            animTimersRef.current.push(doneTid);
+            }, 160);
+            animTimersByPlayerRef.current[playerId].push(doneTid);
           }
         }, (idx + 1) * stepMs);
-        animTimersRef.current.push(tid);
+        animTimersByPlayerRef.current[playerId].push(tid);
       });
 
       return totalDuration;
@@ -464,6 +470,14 @@ interface AuctionPromptEvent {
   const selectedAuctionIdRef = useRef(selectedAuctionId);
   const isSyncingRef = useRef(false);
   const pendingSyncRef = useRef(false);
+  const stateEpochRef = useRef(0);
+  const syncDebounceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (syncDebounceRef.current) window.clearTimeout(syncDebounceRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     gameIdRef.current = gameId;
@@ -481,12 +495,17 @@ interface AuctionPromptEvent {
     selectedAuctionIdRef.current = selectedAuctionId;
   }, [selectedAuctionId]);
 
-  // Synchronize Authoritative Game State from Backend MongoDB with deep equality bailouts
+  // Synchronize Authoritative Game State from Backend MongoDB with stale-response dropper
   const syncAuthoritativeGameState = useCallback(
     async (targetGameId: string, currentPid?: string) => {
+      const requestEpoch = stateEpochRef.current;
       try {
         const data = await api.getGameState(targetGameId);
         if (!data || !data.game) return;
+        // Drop stale GET responses if a newer socket/optimistic mutation landed while in-flight
+        if (stateEpochRef.current !== requestEpoch) {
+          return;
+        }
 
         if (data.game.currentTurnPlayerId) {
           setCurrentTurnPlayerId(data.game.currentTurnPlayerId);
@@ -543,10 +562,17 @@ interface AuctionPromptEvent {
           };
         });
         setPlayers((prev) => {
+          const reconciled = mappedPlayers.map((m) => {
+            if (movingPlayersRef.current[m.id]) {
+              const existing = prev.find((p) => p.id === m.id);
+              return existing ? { ...m, position: existing.position } : m;
+            }
+            return m;
+          });
           const isIdentical =
-            prev.length === mappedPlayers.length &&
+            prev.length === reconciled.length &&
             prev.every((p, i) => {
-              const m = mappedPlayers[i];
+              const m = reconciled[i];
               return (
                 m &&
                 p.id === m.id &&
@@ -556,7 +582,7 @@ interface AuctionPromptEvent {
                 p.isReady === m.isReady
               );
             });
-          return isIdentical ? prev : mappedPlayers;
+          return isIdentical ? prev : reconciled;
         });
 
         // Map Board Spaces with Authoritative Properties
@@ -604,14 +630,15 @@ interface AuctionPromptEvent {
           return isIdentical ? prev : mappedSpaces;
         });
 
-        // Map Auctions
+        // Map Auctions (use serverNow so local client clock skew never rubberbands countdown)
+        const serverNow = Number(data.serverNow || Date.now());
         const backendAuctions = data.activeAuctions || [];
         const mappedAuctions: AuctionItem[] = backendAuctions.map((auc: any) => {
           const seller = mappedPlayers.find((p) => p.id === auc.sellerId);
           const highestBidder = mappedPlayers.find((p) => p.id === auc.highestBidderId);
           const targetSpace = mappedSpaces.find((s) => s.id === auc.propertyId);
           const secondsRem = auc.endTime
-            ? Math.max(0, Math.ceil((new Date(auc.endTime).getTime() - Date.now()) / 1000))
+            ? Math.max(0, Math.ceil((new Date(auc.endTime).getTime() - serverNow) / 1000))
             : 10;
           return {
             id: auc.auctionId,
@@ -871,8 +898,8 @@ interface AuctionPromptEvent {
     []
   );
 
-  // Coalesced smooth background sync handler (prevents parallel network storms)
-  const handleSync = useCallback(async () => {
+  // Debounced & coalesced background sync handler (collapses event bursts & prevents rubberbanding)
+  const runSyncNow = useCallback(async () => {
     const gid = gameIdRef.current;
     if (!gid) return;
     if (isSyncingRef.current) {
@@ -890,6 +917,24 @@ interface AuctionPromptEvent {
       }
     }
   }, [syncAuthoritativeGameState]);
+
+  const handleSync = useCallback(
+    (immediate = false) => {
+      if (syncDebounceRef.current) {
+        window.clearTimeout(syncDebounceRef.current);
+        syncDebounceRef.current = null;
+      }
+      if (immediate === true) {
+        runSyncNow();
+        return;
+      }
+      syncDebounceRef.current = window.setTimeout(() => {
+        syncDebounceRef.current = null;
+        runSyncNow();
+      }, 200);
+    },
+    [runSyncNow]
+  );
 
   const hasRestoredRef = useRef(false);
 
@@ -1036,10 +1081,17 @@ interface AuctionPromptEvent {
       );
     };
 
+    const scheduleSync = () => handleSync(false);
+    const immediateSync = () => handleSync(true);
+
     const onPlayerMoved = (payload: any) => {
       const mr = payload?.movementRecord;
       if (mr?.movementId && lastAnimatedMovementIdRef.current === mr.movementId) {
         return;
+      }
+      stateEpochRef.current += 1;
+      if (payload?.currentTurnPlayerId) {
+        setCurrentTurnPlayerId(payload.currentTurnPlayerId);
       }
       if (mr && typeof mr.previousPosition === 'number' && typeof mr.newPosition === 'number') {
         const dVals: number[] = Array.isArray(mr.diceValues) ? mr.diceValues : [1, 1];
@@ -1056,7 +1108,16 @@ interface AuctionPromptEvent {
         });
         setPlayers((prev) =>
           prev.map((p) =>
-            p.id === mr.playerId ? { ...p, position: mr.newPosition } : p
+            p.id === mr.playerId
+              ? {
+                  ...p,
+                  position: mr.newPosition,
+                  cash:
+                    typeof payload?.player?.balance === 'number'
+                      ? payload.player.balance
+                      : p.cash,
+                }
+              : p
           )
         );
         animatePlayerSteps(
@@ -1065,14 +1126,15 @@ interface AuctionPromptEvent {
           mr.newPosition,
           mr.totalMovement ?? (d1 + d2),
           mr.movementId,
-          () => handleSync()
+          scheduleSync
         );
         return;
       }
-      handleSync();
+      scheduleSync();
     };
 
     const onBalanceUpdated = (evt: any) => {
+      stateEpochRef.current += 1;
       if (evt?.playerId && typeof evt.newBalance === 'number') {
         setPlayers((prev) =>
           prev.map((p) =>
@@ -1080,11 +1142,12 @@ interface AuctionPromptEvent {
           )
         );
       }
-      handleSync();
+      scheduleSync();
     };
 
     const onPlayerLoanRequested = (evt: any) => {
-      handleSync();
+      stateEpochRef.current += 1;
+      scheduleSync();
       const amt = Number(evt?.loan?.principalAmount || 0);
       showToast(
         `${evt?.borrowerName || 'A player'} requested a ₹${amt.toLocaleString('en-IN')} loan! Open Loans → Give Loan to approve.`,
@@ -1094,18 +1157,20 @@ interface AuctionPromptEvent {
 
     const onTurnChanged = ({ currentTurnPlayerId: nextPid }: { currentTurnPlayerId: string }) => {
       if (nextPid) {
+        stateEpochRef.current += 1;
         setCurrentTurnPlayerId(nextPid);
       }
-      handleSync();
     };
 
     const onDebtRecovered = ({ amountRecovered }: { amountRecovered: number }) => {
-      handleSync();
+      stateEpochRef.current += 1;
+      scheduleSync();
       showToast(`Auto-garnished ₹${amountRecovered.toLocaleString('en-IN')} toward debts!`, 'green');
     };
 
     const onAuctionStarted = ({ auction }: any) => {
-      handleSync();
+      stateEpochRef.current += 1;
+      scheduleSync();
       setUnownedLanding(null);
       setAuctionPrompt(null);
       if (auction?.auctionId) {
@@ -1168,6 +1233,7 @@ interface AuctionPromptEvent {
 
     const onAuctionBidPlaced = (data: any) => {
       if (data?.auctionId) {
+        stateEpochRef.current += 1;
         setAuctions((prev) =>
           prev.map((auc) => {
             if (auc.id !== data.auctionId) return auc;
@@ -1201,6 +1267,7 @@ interface AuctionPromptEvent {
     };
 
     const onAuctionEnded = (data: any) => {
+      stateEpochRef.current += 1;
       if (data?.auctionId) {
         setAuctions((prev) =>
           prev.map((auc) =>
@@ -1220,7 +1287,7 @@ interface AuctionPromptEvent {
           )
         );
       }
-      handleSync();
+      scheduleSync();
       if (data?.winnerId) {
         showToast(
           `Sold to ${data.winnerName} for ₹${Number(data.winningBid || 0).toLocaleString('en-IN')}!`,
@@ -1291,18 +1358,17 @@ interface AuctionPromptEvent {
       );
     };
 
-    s.on('connect', handleSync);
-    s.on('player_joined', handleSync);
+    s.on('connect', immediateSync);
+    s.on('player_joined', scheduleSync);
     s.on('player_removed', onPlayerRemoved);
     s.on('game_started', onGameStarted);
     s.on('turn_changed', onTurnChanged);
     s.on('player_moved', onPlayerMoved);
     s.on('balance_updated', onBalanceUpdated);
     s.on('debt_recovered', onDebtRecovered);
-    s.on('transfer_completed', handleSync);
-    s.on('leaderboard_updated', handleSync);
+    s.on('transfer_completed', scheduleSync);
     s.on('property_purchased', onPropertyPurchased);
-    s.on('property_updated', handleSync);
+    s.on('property_updated', scheduleSync);
     s.on('unowned_property_landed', onUnownedPropertyLanded);
     s.on('unowned_property_declined', onUnownedPropertyDeclined);
     s.on('auction_prompt_vote_updated', onAuctionPromptVoteUpdated);
@@ -1311,26 +1377,25 @@ interface AuctionPromptEvent {
     s.on('auction_bid_placed', onAuctionBidPlaced);
     s.on('auction_ended', onAuctionEnded);
     s.on('player_loan_requested', onPlayerLoanRequested);
-    s.on('loan_created', handleSync);
-    s.on('loan_status_changed', handleSync);
-    s.on('loan_repaid', handleSync);
+    s.on('loan_created', scheduleSync);
+    s.on('loan_status_changed', scheduleSync);
+    s.on('loan_repaid', scheduleSync);
     s.on('rent_landing_alert', onRentLandingAlert);
     s.on('rent_event_triggered', onRentEventTriggered);
     s.on('rent_settled', onRentSettled);
 
     return () => {
-      s.off('connect', handleSync);
-      s.off('player_joined', handleSync);
+      s.off('connect', immediateSync);
+      s.off('player_joined', scheduleSync);
       s.off('player_removed', onPlayerRemoved);
       s.off('game_started', onGameStarted);
       s.off('turn_changed', onTurnChanged);
       s.off('player_moved', onPlayerMoved);
       s.off('balance_updated', onBalanceUpdated);
       s.off('debt_recovered', onDebtRecovered);
-      s.off('transfer_completed', handleSync);
-      s.off('leaderboard_updated', handleSync);
+      s.off('transfer_completed', scheduleSync);
       s.off('property_purchased', onPropertyPurchased);
-      s.off('property_updated', handleSync);
+      s.off('property_updated', scheduleSync);
       s.off('unowned_property_landed', onUnownedPropertyLanded);
       s.off('unowned_property_declined', onUnownedPropertyDeclined);
       s.off('auction_prompt_vote_updated', onAuctionPromptVoteUpdated);
@@ -1339,9 +1404,9 @@ interface AuctionPromptEvent {
       s.off('auction_bid_placed', onAuctionBidPlaced);
       s.off('auction_ended', onAuctionEnded);
       s.off('player_loan_requested', onPlayerLoanRequested);
-      s.off('loan_created', handleSync);
-      s.off('loan_status_changed', handleSync);
-      s.off('loan_repaid', handleSync);
+      s.off('loan_created', scheduleSync);
+      s.off('loan_status_changed', scheduleSync);
+      s.off('loan_repaid', scheduleSync);
       s.off('rent_landing_alert', onRentLandingAlert);
       s.off('rent_event_triggered', onRentEventTriggered);
       s.off('rent_settled', onRentSettled);
@@ -1491,6 +1556,7 @@ interface AuctionPromptEvent {
       const res = await api.submitDiceRoll(gameId, effectivePid, diceInput, rollDigital);
 
       // Show exact rolled dice numbers immediately as soon as the server responds
+      stateEpochRef.current += 1;
       if (rollDigital) {
         setIsRollingDice(false);
       }
@@ -1804,6 +1870,7 @@ interface AuctionPromptEvent {
 
   const handlePlaceBid = async (auctionId: string, amount: number) => {
     const bidder = players.find((p) => p.id === activePlayerId) || activePlayer;
+    stateEpochRef.current += 1;
     // Optimistic immediate UI update so bids & 10s reset feel instant
     setAuctions((prev) =>
       prev.map((auc) => {
