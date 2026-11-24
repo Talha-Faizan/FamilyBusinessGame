@@ -44,8 +44,8 @@ async function requestBankLoan({
     loanStatus: "ACTIVE",
   });
 
-  // Disburse funds via centralized incoming-payment service
-  await processIncomingPayment({
+  // Disburse funds via centralized incoming-payment service (exclude this newly created loan from auto-garnish!)
+  const paymentResult = await processIncomingPayment({
     gameId,
     receiverId: borrowerId,
     senderId: null, // From bank
@@ -53,6 +53,7 @@ async function requestBankLoan({
     transactionType: "LOAN_DISBURSEMENT",
     description: `Disbursed Bank Loan of ₹${principalAmount.toLocaleString("en-IN")} at ${interestRate}% interest`,
     relatedLoanId: loanId,
+    excludeLoanId: loanId,
     io,
   });
 
@@ -63,7 +64,12 @@ async function requestBankLoan({
     io.to(gameId).emit("leaderboard_updated", leaderboard);
   }
 
-  return loan;
+  const safeLoan = loan.toObject ? loan.toObject() : loan;
+  return {
+    ...safeLoan,
+    newBalance: paymentResult.newBalance,
+    amountCredited: paymentResult.creditedToSpendable,
+  };
 }
 
 async function requestPlayerLoan({
@@ -152,8 +158,8 @@ async function respondToPlayerLoan({
     loanStatus: "ACTIVE",
   });
 
-  // Disburse principal to borrower through centralized incoming-payment service (handles any prior debts!)
-  await processIncomingPayment({
+  // Disburse principal to borrower through centralized incoming-payment service (exclude this new loan itself)
+  const paymentResult = await processIncomingPayment({
     gameId: loan.gameId,
     receiverId: loan.borrowerId,
     senderId: lenderId,
@@ -161,6 +167,7 @@ async function respondToPlayerLoan({
     transactionType: "LOAN_DISBURSEMENT",
     description: `Player Loan disbursed from ${lender.username} for ₹${loan.principalAmount.toLocaleString("en-IN")}`,
     relatedLoanId: loanId,
+    excludeLoanId: loanId,
     io,
   });
 
@@ -171,7 +178,12 @@ async function respondToPlayerLoan({
     io.to(loan.gameId).emit("leaderboard_updated", leaderboard);
   }
 
-  return activated;
+  const safeActivated = activated?.toObject ? activated.toObject() : activated;
+  return {
+    ...safeActivated,
+    newBalance: paymentResult.newBalance,
+    amountCredited: paymentResult.creditedToSpendable,
+  };
 }
 
 async function repayLoan({

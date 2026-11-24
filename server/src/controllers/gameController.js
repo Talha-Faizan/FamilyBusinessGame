@@ -202,15 +202,33 @@ exports.getGameState = async (req, res) => {
     if (!game) return res.status(404).json({ error: "Game not found" });
 
     const resolvedGameId = game.gameId;
-    const players = await store.getPlayersByGame(resolvedGameId);
-    const properties = await store.getPropertiesByGame(resolvedGameId);
-    const leaderboard = await getGameLeaderboard(resolvedGameId);
-    const pendingRents = await store.getPendingRentEvents(resolvedGameId);
-    const activeAuctions = await store.getActiveAuctionsByGame(resolvedGameId);
-    const loans = await store.getLoansByGame(resolvedGameId);
-    const recentMovements = await store.getMovementsByGame(resolvedGameId, 25);
-    const recentTransactions = await store.getTransactionsByGame(resolvedGameId, 50);
-    const notifications = await store.getNotificationsByGame(resolvedGameId);
+    const [
+      players,
+      properties,
+      pendingRents,
+      activeAuctions,
+      loans,
+      recentMovements,
+      recentTransactions,
+      notifications,
+    ] = await Promise.all([
+      store.getPlayersByGame(resolvedGameId),
+      store.getPropertiesByGame(resolvedGameId),
+      store.getPendingRentEvents(resolvedGameId),
+      store.getActiveAuctionsByGame(resolvedGameId),
+      store.getLoansByGame(resolvedGameId),
+      store.getMovementsByGame(resolvedGameId, 25),
+      store.getTransactionsByGame(resolvedGameId, 50),
+      store.getNotificationsByGame(resolvedGameId),
+    ]);
+
+    const leaderboard = await getGameLeaderboard(resolvedGameId, {
+      game,
+      players,
+      properties,
+      loans,
+      transactions: recentTransactions,
+    });
 
     // Enrich players with computed financial statistics
     const enrichedPlayers = (players || []).map((p) => {

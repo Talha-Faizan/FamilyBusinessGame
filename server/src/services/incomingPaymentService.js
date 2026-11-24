@@ -29,6 +29,7 @@ async function processIncomingPayment({
   relatedPropertyId = null,
   relatedAuctionId = null,
   relatedLandingEventId = null,
+  excludeLoanId = null,
   io = null,
 }) {
   if (amount <= 0) {
@@ -53,8 +54,11 @@ async function processIncomingPayment({
   let remainingMoney = amount;
   const debtRecoveries = [];
 
-  // Check if player has outstanding loans
-  const outstandingLoans = await store.getOutstandingLoansForBorrower(gameId, receiverId);
+  // Check if player has outstanding loans (excluding the loan currently being disbursed)
+  const rawOutstandingLoans = await store.getOutstandingLoansForBorrower(gameId, receiverId);
+  const outstandingLoans = excludeLoanId
+    ? (rawOutstandingLoans || []).filter((l) => l.loanId !== excludeLoanId)
+    : rawOutstandingLoans;
 
   // If there are outstanding debts, intercept money to pay creditors first
   if (outstandingLoans && outstandingLoans.length > 0) {

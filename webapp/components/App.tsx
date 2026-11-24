@@ -1038,11 +1038,15 @@ interface AuctionPromptEvent {
 
     const onPlayerMoved = (payload: any) => {
       const mr = payload?.movementRecord;
+      if (mr?.movementId && lastAnimatedMovementIdRef.current === mr.movementId) {
+        return;
+      }
       if (mr && typeof mr.previousPosition === 'number' && typeof mr.newPosition === 'number') {
         const dVals: number[] = Array.isArray(mr.diceValues) ? mr.diceValues : [1, 1];
         const d1 = dVals[0] ?? 1;
         const d2 = dVals[1] ?? 0;
         const moverName = payload?.player?.username || 'Player';
+        setIsRollingDice(false);
         setLastDiceRoll({
           playerId: mr.playerId,
           playerName: moverName,
@@ -1050,15 +1054,42 @@ interface AuctionPromptEvent {
           die2: d2,
           total: mr.totalMovement ?? (d1 + d2),
         });
+        setPlayers((prev) =>
+          prev.map((p) =>
+            p.id === mr.playerId ? { ...p, position: mr.newPosition } : p
+          )
+        );
         animatePlayerSteps(
           mr.playerId,
           mr.previousPosition,
           mr.newPosition,
           mr.totalMovement ?? (d1 + d2),
-          mr.movementId
+          mr.movementId,
+          () => handleSync()
+        );
+        return;
+      }
+      handleSync();
+    };
+
+    const onBalanceUpdated = (evt: any) => {
+      if (evt?.playerId && typeof evt.newBalance === 'number') {
+        setPlayers((prev) =>
+          prev.map((p) =>
+            p.id === evt.playerId ? { ...p, cash: evt.newBalance } : p
+          )
         );
       }
       handleSync();
+    };
+
+    const onPlayerLoanRequested = (evt: any) => {
+      handleSync();
+      const amt = Number(evt?.loan?.principalAmount || 0);
+      showToast(
+        `${evt?.borrowerName || 'A player'} requested a ₹${amt.toLocaleString('en-IN')} loan! Open Loans → Give Loan to approve.`,
+        'blue'
+      );
     };
 
     const onTurnChanged = ({ currentTurnPlayerId: nextPid }: { currentTurnPlayerId: string }) => {
@@ -1138,20 +1169,35 @@ interface AuctionPromptEvent {
     const onAuctionBidPlaced = (data: any) => {
       if (data?.auctionId) {
         setAuctions((prev) =>
-          prev.map((auc) =>
-            auc.id === data.auctionId
-              ? {
-                  ...auc,
-                  currentBid: Number(data.currentHighestBid ?? auc.currentBid),
-                  highestBidderId: data.highestBidderId || auc.highestBidderId,
-                  highestBidderName: data.highestBidderName || auc.highestBidderName,
-                  secondsRemaining: Number(data.secondsRemaining ?? 10),
-                }
-              : auc
-          )
+          prev.map((auc) => {
+            if (auc.id !== data.auctionId) return auc;
+            const mappedBids = Array.isArray(data.bidHistory)
+              ? data.bidHistory
+                  .slice()
+                  .reverse()
+                  .map((b: any, i: number) => ({
+                    id: `bid-${data.auctionId}-${i}-${b.timestamp || i}`,
+                    bidderId: b.bidderId,
+                    bidderName: b.bidderName || 'Bidder',
+                    amount: Number(b.amount ?? b.bidAmount ?? 0),
+                    timestamp: new Date(b.timestamp || Date.now()).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    }),
+                  }))
+              : auc.bids;
+            return {
+              ...auc,
+              currentBid: Number(data.currentHighestBid ?? auc.currentBid),
+              highestBidderId: data.highestBidderId || auc.highestBidderId,
+              highestBidderName: data.highestBidderName || auc.highestBidderName,
+              secondsRemaining: Number(data.secondsRemaining ?? 10),
+              bids: mappedBids,
+            };
+          })
         );
       }
-      handleSync();
     };
 
     const onAuctionEnded = (data: any) => {
@@ -1251,7 +1297,7 @@ interface AuctionPromptEvent {
     s.on('game_started', onGameStarted);
     s.on('turn_changed', onTurnChanged);
     s.on('player_moved', onPlayerMoved);
-    s.on('balance_updated', handleSync);
+    s.on('balance_updated', onBalanceUpdated);
     s.on('debt_recovered', onDebtRecovered);
     s.on('transfer_completed', handleSync);
     s.on('leaderboard_updated', handleSync);
@@ -1264,6 +1310,7 @@ interface AuctionPromptEvent {
     s.on('auction_started', onAuctionStarted);
     s.on('auction_bid_placed', onAuctionBidPlaced);
     s.on('auction_ended', onAuctionEnded);
+    s.on('player_loan_requested', onPlayerLoanRequested);
     s.on('loan_created', handleSync);
     s.on('loan_status_changed', handleSync);
     s.on('loan_repaid', handleSync);
@@ -1278,7 +1325,7 @@ interface AuctionPromptEvent {
       s.off('game_started', onGameStarted);
       s.off('turn_changed', onTurnChanged);
       s.off('player_moved', onPlayerMoved);
-      s.off('balance_updated', handleSync);
+      s.off('balance_updated', onBalanceUpdated);
       s.off('debt_recovered', onDebtRecovered);
       s.off('transfer_completed', handleSync);
       s.off('leaderboard_updated', handleSync);
@@ -1291,6 +1338,7 @@ interface AuctionPromptEvent {
       s.off('auction_started', onAuctionStarted);
       s.off('auction_bid_placed', onAuctionBidPlaced);
       s.off('auction_ended', onAuctionEnded);
+      s.off('player_loan_requested', onPlayerLoanRequested);
       s.off('loan_created', handleSync);
       s.off('loan_status_changed', handleSync);
       s.off('loan_repaid', handleSync);
@@ -1442,9 +1490,8 @@ interface AuctionPromptEvent {
 
       const res = await api.submitDiceRoll(gameId, effectivePid, diceInput, rollDigital);
 
-      // Give digital dice brief tumble feedback before pawn starts stepping
+      // Show exact rolled dice numbers immediately as soon as the server responds
       if (rollDigital) {
-        await new Promise((r) => window.setTimeout(r, 420));
         setIsRollingDice(false);
       }
 
@@ -1469,6 +1516,20 @@ interface AuctionPromptEvent {
         die2: d2,
         total,
       });
+
+      if (typeof res.player?.balance === 'number' || typeof toPos === 'number') {
+        setPlayers((prev) =>
+          prev.map((p) =>
+            p.id === effectivePid
+              ? {
+                  ...p,
+                  position: toPos,
+                  cash: typeof res.player?.balance === 'number' ? res.player.balance : p.cash,
+                }
+              : p
+          )
+        );
+      }
 
       const mv: MovementLog = {
         id: m?.movementId || `mv-${Date.now()}`,
@@ -1569,12 +1630,9 @@ interface AuctionPromptEvent {
 
       // Step-by-step hop animation across board spaces, then sync & open landing prompt
       animatePlayerSteps(effectivePid, fromPos, toPos, total, m?.movementId, () => {
-        syncAuthoritativeGameState(gameId, effectivePid);
+        handleSync();
         handlePostLanding();
       });
-
-      // Keep balances/logs updated immediately while visualPositions holds the hop path
-      await syncAuthoritativeGameState(gameId, effectivePid);
 
       return mv;
     } catch (err: any) {
@@ -1745,11 +1803,38 @@ interface AuctionPromptEvent {
   };
 
   const handlePlaceBid = async (auctionId: string, amount: number) => {
+    const bidder = players.find((p) => p.id === activePlayerId) || activePlayer;
+    // Optimistic immediate UI update so bids & 10s reset feel instant
+    setAuctions((prev) =>
+      prev.map((auc) => {
+        if (auc.id !== auctionId) return auc;
+        const optimisticBid = {
+          id: `bid-opt-${Date.now()}`,
+          bidderId: activePlayerId,
+          bidderName: bidder.name,
+          amount,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          }),
+        };
+        return {
+          ...auc,
+          currentBid: amount,
+          highestBidderId: activePlayerId,
+          highestBidderName: bidder.name,
+          secondsRemaining: 10,
+          bids: [optimisticBid, ...auc.bids],
+        };
+      })
+    );
+    showToast(`Bid of ₹${amount.toLocaleString('en-IN')} placed!`, 'yellow');
+
     try {
       await api.placeBid(gameId, auctionId, activePlayerId, amount);
-      await syncAuthoritativeGameState(gameId, activePlayerId);
-      showToast(`Bid of ₹${amount.toLocaleString('en-IN')} placed!`, 'yellow');
     } catch (err: any) {
+      await syncAuthoritativeGameState(gameId, activePlayerId);
       showToast(err.message || 'Failed to place bid', 'pink');
     }
   };
@@ -1779,11 +1864,22 @@ interface AuctionPromptEvent {
   ) => {
     try {
       if (lenderId === 'bank') {
-        await api.takeBankLoan(gameId, activePlayerId, amount);
-        showToast(`Bank loan of ₹${amount.toLocaleString('en-IN')} disbursed!`, 'green');
+        const loanRes = await api.takeBankLoan(gameId, activePlayerId, amount);
+        if (typeof loanRes?.newBalance === 'number') {
+          setPlayers((prev) =>
+            prev.map((p) => (p.id === activePlayerId ? { ...p, cash: loanRes.newBalance } : p))
+          );
+        }
+        const credited = Number(loanRes?.amountCredited ?? amount);
+        showToast(
+          credited > 0
+            ? `Bank loan disbursed! ₹${credited.toLocaleString('en-IN')} credited to your balance.`
+            : `Bank loan disbursed and applied to existing debt.`,
+          'green'
+        );
       } else {
         await api.requestPlayerLoan(gameId, activePlayerId, lenderId, amount, rate);
-        showToast('P2P loan request sent to rival player!', 'blue');
+        showToast('P2P loan request sent! Lender must approve in Loans → Give Loan.', 'blue');
       }
       await syncAuthoritativeGameState(gameId, activePlayerId);
       setScreen('loans-dashboard');
