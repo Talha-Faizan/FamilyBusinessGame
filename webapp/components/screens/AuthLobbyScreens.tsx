@@ -269,9 +269,9 @@ export function CreateGameScreen({
 
             <div className="space-y-2">
               <label className="text-xs font-extrabold uppercase tracking-wider text-[#171717]/75">
-                Geometric Token Emblem
+                Choose Hero Avatar
               </label>
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-3 gap-2.5">
                 {AVATAR_OPTIONS.map((opt) => {
                   const active = selectedAvatar === opt.id;
                   return (
@@ -517,7 +517,7 @@ export function JoinGameScreen({
 }) {
   const [code, setCode] = useState(defaultRoomCode);
   const [username, setUsername] = useState('Rhea');
-  const [avatar, setAvatar] = useState<AvatarShapeId>('diamond-grid');
+  const [avatar, setAvatar] = useState<AvatarShapeId>('spiderman');
   const [tone, setTone] = useState<PastelTone>('blue');
 
   useEffect(() => {
@@ -588,9 +588,9 @@ export function JoinGameScreen({
 
             <div className="space-y-2">
               <label className="text-xs font-extrabold uppercase tracking-wider text-[#171717]/75">
-                Choose Your Board Emblem
+                Choose Your Hero Avatar
               </label>
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-3 gap-2.5">
                 {AVATAR_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}

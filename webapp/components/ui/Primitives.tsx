@@ -24,136 +24,49 @@ export const PASTEL_BG_CLASSES: Record<PastelTone, string> = {
   gray: 'bg-[#EAEAEA]',
 };
 
-export const AVATAR_OPTIONS: { id: AvatarShapeId; label: string; tone: PastelTone }[] = [
-  { id: 'prism', label: 'Solar Prism', tone: 'yellow' },
-  { id: 'orbit', label: 'Orbital Ring', tone: 'blue' },
-  { id: 'arch-duo', label: 'Twin Arch', tone: 'green' },
-  { id: 'starburst', label: 'Octa Star', tone: 'orange' },
-  { id: 'monolith', label: 'Split Pillar', tone: 'pink' },
-  { id: 'crown-geo', label: 'Apex Crown', tone: 'yellow' },
-  { id: 'diamond-grid', label: 'Quad Rhombus', tone: 'blue' },
-  { id: 'stepped-hex', label: 'Step Terrace', tone: 'green' },
+export const AVATAR_OPTIONS: {
+  id: AvatarShapeId;
+  label: string;
+  tone: PastelTone;
+  src: string;
+}[] = [
+  { id: 'ironman', label: 'Iron Man', tone: 'orange', src: '/avatars/ironman.png' },
+  { id: 'captainamerica', label: 'Capt. America', tone: 'blue', src: '/avatars/captainamerica.png' },
+  { id: 'spiderman', label: 'Spider-Man', tone: 'pink', src: '/avatars/spiderman.png' },
+  { id: 'hulk', label: 'Hulk', tone: 'green', src: '/avatars/hulk.png' },
+  { id: 'wolverine', label: 'Wolverine', tone: 'yellow', src: '/avatars/wolverine.png' },
+  { id: 'drstange', label: 'Dr. Strange', tone: 'orange', src: '/avatars/drstange.png' },
+  { id: 'drdoom', label: 'Dr. Doom', tone: 'green', src: '/avatars/drdoom.png' },
+  { id: 'thanos', label: 'Thanos', tone: 'yellow', src: '/avatars/thanos.png' },
+  { id: 'venom', label: 'Venom', tone: 'gray', src: '/avatars/venom.png' },
 ];
 
-function AvatarGlyphSvg({
-  shape,
-  className = 'w-[62%] h-[62%]',
-}: {
-  shape: AvatarShapeId;
-  className?: string;
-}) {
-  return (
-    <svg viewBox="0 0 40 40" className={className} fill="none">
-      {shape === 'prism' && (
-        <>
-          <polygon
-            points="20,5 34,31 6,31"
-            fill="#171717"
-            stroke="#171717"
-            strokeWidth="2"
-            strokeLinejoin="round"
-          />
-          <circle cx="20" cy="22" r="5" fill="#F8F7EF" />
-        </>
-      )}
-      {shape === 'orbit' && (
-        <>
-          <circle cx="20" cy="20" r="12" stroke="#171717" strokeWidth="3.5" />
-          <circle cx="20" cy="20" r="5.5" fill="#171717" />
-          <circle cx="29" cy="11" r="3.5" fill="#F8F7EF" stroke="#171717" strokeWidth="2" />
-        </>
-      )}
-      {shape === 'arch-duo' && (
-        <>
-          <path
-            d="M8 32V18C8 11.3726 13.3726 6 20 6C26.6274 6 32 11.3726 32 18V32H24V18C24 15.7909 22.2091 14 20 14C17.7909 14 16 15.7909 16 18V32H8Z"
-            fill="#171717"
-          />
-          <circle cx="20" cy="25" r="3.5" fill="#171717" />
-        </>
-      )}
-      {shape === 'starburst' && (
-        <>
-          <path
-            d="M20 4L24.2 13.8L34 15L26.8 22L28.8 32L20 27L11.2 32L13.2 22L6 15L15.8 13.8L20 4Z"
-            fill="#171717"
-            stroke="#171717"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
-          <rect x="16.5" y="16.5" width="7" height="7" rx="2" fill="#F8F7EF" />
-        </>
-      )}
-      {shape === 'monolith' && (
-        <>
-          <rect x="8" y="7" width="10" height="26" rx="5" fill="#171717" />
-          <rect
-            x="22"
-            y="13"
-            width="10"
-            height="20"
-            rx="5"
-            fill="#F8F7EF"
-            stroke="#171717"
-            strokeWidth="2.5"
-          />
-          <circle cx="27" cy="8.5" r="2.8" fill="#171717" />
-        </>
-      )}
-      {shape === 'crown-geo' && (
-        <>
-          <path
-            d="M6 29L9 12L16.5 19L20 9L23.5 19L31 12L34 29H6Z"
-            fill="#171717"
-            stroke="#171717"
-            strokeWidth="2"
-            strokeLinejoin="round"
-          />
-          <rect x="9" y="31" width="22" height="3.5" rx="1.75" fill="#171717" />
-        </>
-      )}
-      {shape === 'diamond-grid' && (
-        <>
-          <rect
-            x="20"
-            y="5"
-            width="12"
-            height="12"
-            rx="2.5"
-            transform="rotate(45 20 5)"
-            fill="#171717"
-          />
-          <rect
-            x="20"
-            y="18"
-            width="12"
-            height="12"
-            rx="2.5"
-            transform="rotate(45 20 18)"
-            fill="#F8F7EF"
-            stroke="#171717"
-            strokeWidth="2.5"
-          />
-        </>
-      )}
-      {shape === 'stepped-hex' && (
-        <>
-          <rect x="7" y="23" width="26" height="8" rx="3" fill="#171717" />
-          <rect x="11" y="15" width="18" height="8" rx="3" fill="#171717" />
-          <rect
-            x="15"
-            y="7"
-            width="10"
-            height="8"
-            rx="3"
-            fill="#F8F7EF"
-            stroke="#171717"
-            strokeWidth="2.5"
-          />
-        </>
-      )}
-    </svg>
-  );
+const LEGACY_AVATAR_FALLBACKS: Record<string, AvatarShapeId> = {
+  prism: 'ironman',
+  orbit: 'captainamerica',
+  'diamond-grid': 'spiderman',
+  'arch-duo': 'hulk',
+  'crown-geo': 'wolverine',
+  starburst: 'drstange',
+  'stepped-hex': 'drdoom',
+  monolith: 'thanos',
+  circle: 'ironman',
+  triangle: 'captainamerica',
+  player_1: 'ironman',
+};
+
+export function resolveAvatarId(raw?: string | null, index = 0): AvatarShapeId {
+  if (raw) {
+    const direct = AVATAR_OPTIONS.find((opt) => opt.id === raw);
+    if (direct) return direct.id;
+    if (raw in LEGACY_AVATAR_FALLBACKS) return LEGACY_AVATAR_FALLBACKS[raw];
+  }
+  return AVATAR_OPTIONS[index % AVATAR_OPTIONS.length].id;
+}
+
+export function getAvatarImageSrc(avatar?: string | null): string {
+  const id = resolveAvatarId(avatar);
+  return AVATAR_OPTIONS.find((opt) => opt.id === id)?.src || '/avatars/ironman.png';
 }
 
 export function GeometricAvatar({
@@ -163,7 +76,7 @@ export function GeometricAvatar({
   circular = false,
   className = '',
 }: {
-  shape: AvatarShapeId;
+  shape: AvatarShapeId | string;
   tone?: PastelTone;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   circular?: boolean;
@@ -179,10 +92,15 @@ export function GeometricAvatar({
 
   return (
     <div
-      className={`${dims} ${PASTEL_BG_CLASSES[tone]} border-[1.5px] border-[#171717] flex items-center justify-center shrink-0 select-none shadow-[0_2px_0_0_#171717] ${className}`}
+      className={`${dims} ${PASTEL_BG_CLASSES[tone]} border-[1.5px] border-[#171717] flex items-center justify-center shrink-0 select-none overflow-hidden shadow-[0_2px_0_0_#171717] ${className}`}
       aria-hidden="true"
     >
-      <AvatarGlyphSvg shape={shape} />
+      <img
+        src={getAvatarImageSrc(shape)}
+        alt=""
+        className="w-full h-full object-cover select-none"
+        draggable={false}
+      />
     </div>
   );
 }
@@ -197,7 +115,7 @@ export function BoardPlayerToken({
   size = 'sm',
 }: {
   name: string;
-  avatar: AvatarShapeId;
+  avatar: AvatarShapeId | string;
   tone?: PastelTone;
   isTurn?: boolean;
   isSelf?: boolean;
@@ -227,7 +145,12 @@ export function BoardPlayerToken({
       <div
         className={`relative ${badgeDims} ${PASTEL_BG_CLASSES[tone]} border-[2px] border-[#171717] shadow-[0_2px_0_0_#171717] flex items-center justify-center overflow-hidden`}
       >
-        <AvatarGlyphSvg shape={avatar} className="w-[70%] h-[70%]" />
+        <img
+          src={getAvatarImageSrc(avatar)}
+          alt={name}
+          className="w-full h-full object-cover select-none"
+          draggable={false}
+        />
       </div>
     </div>
   );

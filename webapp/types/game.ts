@@ -25,14 +25,15 @@ export type ScreenId =
 export type GameMode = 'local' | 'online';
 
 export type AvatarShapeId =
-  | 'prism'
-  | 'orbit'
-  | 'monolith'
-  | 'crown-geo'
-  | 'diamond-grid'
-  | 'arch-duo'
-  | 'starburst'
-  | 'stepped-hex';
+  | 'ironman'
+  | 'captainamerica'
+  | 'spiderman'
+  | 'hulk'
+  | 'wolverine'
+  | 'drstange'
+  | 'drdoom'
+  | 'thanos'
+  | 'venom';
 
 export type PastelTone = 'yellow' | 'pink' | 'blue' | 'green' | 'orange' | 'white' | 'gray';
 

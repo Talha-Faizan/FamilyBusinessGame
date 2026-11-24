@@ -53,6 +53,7 @@ import {
   formatINR,
   GeometricAvatar,
   PastelCard,
+  resolveAvatarId,
   StatusBadge,
 } from './ui/Primitives';
 import {
@@ -437,7 +438,7 @@ interface AuctionPromptEvent {
       players[0] || {
         id: 'p-guest',
         name: 'Guest Player',
-        avatar: 'prism' as AvatarShapeId,
+        avatar: 'ironman' as AvatarShapeId,
         accent: 'yellow' as PastelTone,
         accentHex: '#FFD95A',
         cash: config.startingMoney,
@@ -526,12 +527,12 @@ interface AuctionPromptEvent {
 
         // Map Players
         const backendPlayers = data.players || [];
-        const mappedPlayers: Player[] = backendPlayers.map((p: any) => {
+        const mappedPlayers: Player[] = backendPlayers.map((p: any, idx: number) => {
           const accent = (p.color as PastelTone) || 'yellow';
           return {
             id: p.playerId || p.id,
             name: p.username || p.name || 'Player',
-            avatar: (p.avatar as AvatarShapeId) || 'prism',
+            avatar: resolveAvatarId(p.avatar, idx),
             accent: accent in PASTEL_HEX ? (accent as PastelTone) : 'yellow',
             accentHex: PASTEL_HEX[accent as PastelTone] || p.color || '#FFD95A',
             cash: p.balance ?? p.currentBalance ?? 50000,
